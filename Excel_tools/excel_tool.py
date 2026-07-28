@@ -1,0 +1,221 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Excel通用小工具 — 主入口
+只负责：窗口框架、左侧导航栏、页面切换、公共日志
+各功能页面独立存放在 pages/ 目录下
+"""
+
+import tkinter as tk
+from tkinter import ttk
+from datetime import datetime
+
+from pages import (
+    create_merge_page,
+    create_compare_page,
+    create_data_merge_page,
+    create_split_page,
+    create_append_page,
+    create_column_split_page,
+    create_help_page,
+    create_about_page,
+)
+
+
+class ExcelToolApp:
+    """主应用框架"""
+
+    # ========== 配色常量 ==========
+    COLOR_NAV_BG          = "#2c3e50"
+    COLOR_NAV_HOVER       = "#34495e"
+    COLOR_NAV_ACTIVE      = "#3498db"
+    COLOR_CONTENT_BG      = "#f5f5f5"
+    COLOR_BTN_PRIMARY     = "#3498db"
+    COLOR_BTN_PRIMARY_HOVER = "#2980b9"
+
+    # ========== 导航配置 ==========
+    # (显示文本, page_id, 页面构建函数, 是否懒加载)
+    NAV_ITEMS = [
+        ("填充数据", "merge",     create_merge_page,    False),
+        ("数据对比", "compare",   create_compare_page,  True),
+        ("数据合并", "merge_tbl", create_data_merge_page, True),
+        ("数据拆分",     "split",     create_split_page,    True),
+        ("多文件追加",   "append",    create_append_page,   True),
+        ("按列值拆分",   "col_split", create_column_split_page, True),
+        ("使用说明",     "help",      create_help_page,     True),
+        ("关于",     "about",     create_about_page,    True),
+    ]
+
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Excel通用小工具")
+        self.root.geometry("900x800")
+        self.root.minsize(850, 750)
+        self.root.configure(bg=self.COLOR_CONTENT_BG)
+
+        self.nav_buttons = {}        # page_id → Label
+        self.page_builders = {}      # page_id → build_func
+        self.pages = {}              # page_id → Frame（懒加载）
+        self.current_page = None
+        self._log_callback = None    # 可选的公共日志回调
+
+        self._init_ttk_styles()
+        self._build_ui()
+        self._switch_page("merge")
+
+    # ===== 初始化 ttk 主题样式 =====
+    def _init_ttk_styles(self):
+        style = ttk.Style()
+        try:
+            style.theme_use("clam")  # clam 主题更易于自定义
+        except tk.TclError:
+            pass
+
+        # ---- 按钮样式 ----
+        # 主按钮（蓝色，大号）
+        style.configure("Primary.TButton",
+            font=("Microsoft YaHei", 11, "bold"),
+            padding=(30, 8),
+            borderwidth=0,
+            relief="flat",
+            foreground="white",
+            background="#3498db",
+            focusthickness=0)
+        style.map("Primary.TButton",
+            background=[("active", "#2980b9"), ("disabled", "#aab7c4")],
+            foreground=[("disabled", "#e0e0e0")])
+
+        # 次要按钮（白色，带边框，用于"浏览...")
+        style.configure("Secondary.TButton",
+            font=("Microsoft YaHei", 9),
+            padding=(12, 4),
+            borderwidth=0,
+            relief="flat",
+            foreground="#2c3e50",
+            background="#ecf0f1",
+            focusthickness=0)
+        style.map("Secondary.TButton",
+            background=[("active", "#d5dbdb"), ("disabled", "#f0f3f4")])
+
+        # 启动按钮（绿色）
+        style.configure("Action.TButton",
+            font=("Microsoft YaHei", 11, "bold"),
+            padding=(30, 8),
+            borderwidth=0,
+            relief="flat",
+            foreground="white",
+            background="#27ae60",
+            focusthickness=0)
+        style.map("Action.TButton",
+            background=[("active", "#219a52"), ("disabled", "#aab7c4")],
+            foreground=[("disabled", "#e0e0e0")])
+
+        # ---- 输入框样式 ----
+        style.configure("Normal.TEntry",
+            font=("Microsoft YaHei", 10),
+            padding=(8, 6),
+            relief="solid",
+            borderwidth=1,
+            fieldbackground="white",
+            foreground="#2c3e50",
+            lightcolor="#d5dce0",
+            darkcolor="#d5dce0",
+            bordercolor="#d5dce0")
+        style.configure("Readonly.TEntry",
+            font=("Microsoft YaHei", 10),
+            padding=(8, 6),
+            relief="solid",
+            borderwidth=1,
+            fieldbackground="#f5f5f5",
+            foreground="#555555",
+            lightcolor="#d5dce0",
+            darkcolor="#d5dce0",
+            bordercolor="#d5dce0")
+
+        # ---- LabelFrame 卡片样式 ----
+        # 边框几乎透明，只用留白和标题做分区
+        style.configure("Card.TLabelframe",
+            background=self.COLOR_CONTENT_BG,
+            bordercolor="#f0f0f0",
+            relief="solid",
+            borderwidth=1,
+            labelmargins=(10, 2))
+        style.configure("Card.TLabelframe.Label",
+            font=("Microsoft YaHei", 11, "bold"),
+            foreground="#2c3e50",
+            background=self.COLOR_CONTENT_BG)
+
+        # 将 style 引用保存，供页面模块获取
+        self.ttk_style = style
+
+    # ===== 构建主框架 =====
+    def _build_ui(self):
+        # 左侧导航栏
+        self.nav_frame = tk.Frame(self.root, width=160, bg=self.COLOR_NAV_BG)
+        self.nav_frame.pack(side=tk.LEFT, fill=tk.Y)
+        self.nav_frame.pack_propagate(False)
+
+        tk.Label(self.nav_frame, text="Excel工具",
+            font=("Microsoft YaHei", 14, "bold"),
+            bg=self.COLOR_NAV_BG, fg="white", pady=20).pack(fill=tk.X)
+
+        for text, pid, builder, _lazy in self.NAV_ITEMS:
+            self.page_builders[pid] = builder
+            btn = tk.Label(self.nav_frame, text=text,
+                font=("Microsoft YaHei", 11),
+                bg=self.COLOR_NAV_BG, fg="white",
+                padx=20, pady=12, anchor=tk.W, cursor="hand2")
+            btn.pack(fill=tk.X)
+            btn.bind("<Button-1>", lambda e, p=pid: self._switch_page(p))
+            btn.bind("<Enter>",
+                lambda e, b=btn: b.config(bg=self.COLOR_NAV_HOVER))
+            btn.bind("<Leave>",
+                lambda e, b=btn, p=pid: b.config(
+                    bg=self.COLOR_NAV_ACTIVE if self.current_page == p else self.COLOR_NAV_BG))
+            self.nav_buttons[pid] = btn
+
+        # 右侧内容容器
+        self.content_container = tk.Frame(self.root, bg=self.COLOR_CONTENT_BG)
+        self.content_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=15, pady=15)
+
+    # ===== 页面切换 =====
+    def _switch_page(self, page_id):
+        # 导航按钮高亮
+        for pid, btn in self.nav_buttons.items():
+            btn.config(bg=self.COLOR_NAV_ACTIVE if pid == page_id else self.COLOR_NAV_BG)
+        self.current_page = page_id
+
+        # 隐藏所有页面
+        for p in self.pages.values():
+            p.pack_forget()
+
+        # 懒加载
+        if page_id not in self.pages:
+            builder = self.page_builders[page_id]
+            self.pages[page_id] = builder(self.content_container, self)
+
+        self.pages[page_id].pack(fill=tk.BOTH, expand=True)
+
+    # ===== 公共日志 =====
+    def set_log_callback(self, callback):
+        """设置外部日志回调（如公共日志框），供页面模块调用"""
+        self._log_callback = callback
+
+    def log(self, message):
+        """页面模块可调用此方法输出公共日志"""
+        ts = datetime.now().strftime("%H:%M:%S")
+        line = f"[{ts}] {message}"
+        print(line)
+        if self._log_callback:
+            self._log_callback(line + "\n")
+
+
+# ===== 主入口 =====
+def main():
+    root = tk.Tk()
+    ExcelToolApp(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()

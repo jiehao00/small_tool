@@ -1,0 +1,9 @@
+# 打包输出目录
+/build/
+/dist/
+ocr_tool/
+# 二进制大文件
+*.exe
+*.pkg
+*.dll
+*.7z

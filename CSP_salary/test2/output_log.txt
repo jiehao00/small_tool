@@ -1,0 +1,19 @@
+[INFO] 读取 Excel: e:\worksun202109-\workboddy\test2\工资条1.xlsx
+  共 2 条记录
+
+[1/2] 处理: 吴嘉杰_3190001128
+  [OK] PDF 已生成 (Word)
+  [OK] 输出: e:\worksun202109-\workboddy\test2\output\吴嘉杰_3190001128.png
+[2/2] 处理: 测试_1252225128
+  [OK] PDF 已生成 (Word)
+  [OK] 输出: e:\worksun202109-\workboddy\test2\output\测试_1252225128.png
+
+===== 完成 =====
+成功: 2 | 失败: 0
+输出目录: e:\worksun202109-\workboddy\test2\output
+
+按 Enter 键退出...Traceback (most recent call last):
+  File "generate_salary_slips.py", line 560, in <module>
+  File "generate_salary_slips.py", line 556, in main
+EOFError: EOF when reading a line
+[PYI-60548:ERROR] Failed to execute script 'generate_salary_slips' due to unhandled exception!
