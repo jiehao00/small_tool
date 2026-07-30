@@ -16,6 +16,9 @@ from .data_merge import create_page as create_data_merge_page
 from .data_split import create_page as create_split_page
 from .data_append import create_page as create_append_page
 from .column_split import create_page as create_column_split_page
+from .reconciliation import create_page as create_reconciliation_page
+from .filter_extract import create_page as create_filter_extract_page
+from .invoice_check import create_page as create_invoice_check_page
 from .help_page import create_page as create_help_page
 from .about import create_page as create_about_page
 
@@ -26,6 +29,9 @@ __all__ = [
     "create_split_page",
     "create_append_page",
     "create_column_split_page",
+    "create_reconciliation_page",
+    "create_filter_extract_page",
+    "create_invoice_check_page",
     "create_help_page",
     "create_about_page",
 ]

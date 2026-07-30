@@ -385,34 +385,65 @@ class MergeDataBuilder:
                 if c not in headers_b:
                     raise ValueError(f"B 文件中不存在列名: '{c}'")
 
-            # B 文件索引
+            # B 文件索引（支持重复 key → 存为列表）
             self._log("构建 B 文件查找索引...")
             b_lookup = {}
+            dup_count = 0
             for row_b in ws_b.iter_rows(min_row=2, values_only=False):
                 key = tuple(str(row_b[headers_b[c] - 1].value or "").strip() for c in match_b_cols)
-                b_lookup[key] = row_b
-            self._log(f"索引完成，共 {len(b_lookup)} 条唯一记录")
+                if key in b_lookup:
+                    b_lookup[key].append(row_b)
+                    dup_count += 1
+                else:
+                    b_lookup[key] = [row_b]
+            if dup_count > 0:
+                self._log(f"索引完成，共 {len(b_lookup)} 条唯一 key（含 {dup_count} 条重复记录）")
+            else:
+                self._log(f"索引完成，共 {len(b_lookup)} 条唯一记录")
 
             # 遍历填充
             self._log("开始遍历 A 文件并填充...")
             fill_count = skip_count = no_match_count = 0
+            merged_count = 0  # 因重复 key 被拼接的次数
 
             for row_a in ws_a.iter_rows(min_row=2, values_only=False):
                 key = tuple(str(row_a[headers_a[c] - 1].value or "").strip() for c in match_a_cols)
-                row_b = b_lookup.get(key)
-                if row_b is None:
+                rows_b = b_lookup.get(key)
+                if rows_b is None:
                     no_match_count += 1
                     continue
                 for f_a, f_b in zip(fill_a_cols, fill_b_cols):
                     cell_a = row_a[headers_a[f_a] - 1]
-                    cell_b = row_b[headers_b[f_b] - 1]
                     if cell_a.value is None or str(cell_a.value).strip() == "":
-                        cell_a.value = cell_b.value
+                        # 从所有匹配的 B 行中收集非空值并去重
+                        raw_values = []
+                        for row_b in rows_b:
+                            v = row_b[headers_b[f_b] - 1].value
+                            if v is not None and str(v).strip() != "":
+                                raw_values.append(v)
+                        if not raw_values:
+                            continue
+                        # 去重（保持首次出现顺序）
+                        seen = set()
+                        unique_vals = []
+                        for v in raw_values:
+                            vid = str(v).strip()
+                            if vid not in seen:
+                                seen.add(vid)
+                                unique_vals.append(v)
+                        if len(unique_vals) == 1:
+                            cell_a.value = unique_vals[0]
+                        else:
+                            cell_a.value = "; ".join(str(v) for v in unique_vals)
+                            merged_count += 1
                         fill_count += 1
                     else:
                         skip_count += 1
 
-            self._log(f"填充 {fill_count} 个，跳过 {skip_count} 个（非空），未匹配 {no_match_count} 行")
+            if merged_count > 0:
+                self._log(f"填充 {fill_count} 个（其中 {merged_count} 个因重复 key 被拼接），跳过 {skip_count} 个（非空），未匹配 {no_match_count} 行")
+            else:
+                self._log(f"填充 {fill_count} 个，跳过 {skip_count} 个（非空），未匹配 {no_match_count} 行")
 
             # 保存
             wb_a.save(out_path)

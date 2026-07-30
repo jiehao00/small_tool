@@ -54,7 +54,7 @@ class DataComparePage:
         bg = self.app.COLOR_CONTENT_BG
 
         # 标题
-        tk.Label(self.frame, text="★ Excel 数据对比",
+        tk.Label(self.frame, text="数据对比（交集差集对比）",
             font=("Microsoft YaHei", 16, "bold"), bg=bg, fg="#2c3e50"
         ).pack(anchor=tk.W, pady=(0, 12))
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Excel通用小工具 — 主入口
+财务Excel工具箱 — 主入口
 只负责：窗口框架、左侧导航栏、页面切换、公共日志
 各功能页面独立存放在 pages/ 目录下
 """
@@ -17,9 +17,13 @@ from pages import (
     create_split_page,
     create_append_page,
     create_column_split_page,
+    create_reconciliation_page,
+    create_filter_extract_page,
+    create_invoice_check_page,
     create_help_page,
     create_about_page,
 )
+from pages.logo_data import LOGO_NAV_B64, b64_to_photoimage
 
 
 class ExcelToolApp:
@@ -38,17 +42,20 @@ class ExcelToolApp:
     NAV_ITEMS = [
         ("填充数据", "merge",     create_merge_page,    False),
         ("数据对比", "compare",   create_compare_page,  True),
+        ("财务对账", "reconciliation", create_reconciliation_page, True),
+        ("发票验重", "invoice_check", create_invoice_check_page, True),
         ("数据合并", "merge_tbl", create_data_merge_page, True),
         ("数据拆分",     "split",     create_split_page,    True),
         ("多文件追加",   "append",    create_append_page,   True),
         ("按列值拆分",   "col_split", create_column_split_page, True),
+        ("条件筛选提取", "filter_extract", create_filter_extract_page, True),
         ("使用说明",     "help",      create_help_page,     True),
         ("关于",     "about",     create_about_page,    True),
     ]
 
     def __init__(self, root):
         self.root = root
-        self.root.title("Excel通用小工具")
+        self.root.title("财务Excel工具箱")
         self.root.geometry("900x800")
         self.root.minsize(850, 750)
         self.root.configure(bg=self.COLOR_CONTENT_BG)
@@ -131,6 +138,66 @@ class ExcelToolApp:
             lightcolor="#d5dce0",
             darkcolor="#d5dce0",
             bordercolor="#d5dce0")
+        style.configure("CondEntry.TEntry",
+            font=("Microsoft YaHei", 10),
+            padding=(6, 4),
+            relief="solid",
+            borderwidth=1,
+            fieldbackground="white",
+            foreground="#2c3e50",
+            lightcolor="#d5dce0",
+            darkcolor="#d5dce0",
+            bordercolor="#d5dce0")
+
+        # ---- 条件筛选下拉框样式 ----
+        style.configure("CondCol.TCombobox",
+            font=("Microsoft YaHei", 10),
+            padding=(8, 5),
+            borderwidth=1,
+            relief="solid",
+            bordercolor="#d5dce0",
+            lightcolor="#d5dce0",
+            darkcolor="#d5dce0",
+            arrowcolor="#7f8c8d",
+            fieldbackground="white",
+            background="white",
+            foreground="#2c3e50")
+        style.map("CondCol.TCombobox",
+            fieldbackground=[("readonly", "white"), ("disabled", "#f0f0f0"), ("focus", "white"), ("active", "white")],
+            background=[("readonly", "white"), ("disabled", "#f0f0f0"), ("focus", "white"), ("active", "white")],
+            foreground=[("readonly", "#2c3e50"), ("disabled", "#aaaaaa")])
+        style.configure("CondOp.TCombobox",
+            font=("Microsoft YaHei", 10),
+            padding=(8, 5),
+            borderwidth=1,
+            relief="solid",
+            bordercolor="#d5dce0",
+            lightcolor="#d5dce0",
+            darkcolor="#d5dce0",
+            arrowcolor="#7f8c8d",
+            fieldbackground="white",
+            background="white",
+            foreground="#2c3e50")
+        style.map("CondOp.TCombobox",
+            fieldbackground=[("readonly", "white"), ("disabled", "#f0f0f0"), ("focus", "white"), ("active", "white")],
+            background=[("readonly", "white"), ("disabled", "#f0f0f0"), ("focus", "white"), ("active", "white")],
+            foreground=[("readonly", "#2c3e50"), ("disabled", "#aaaaaa")])
+        style.configure("CondConn.TCombobox",
+            font=("Microsoft YaHei", 9, "bold"),
+            padding=(6, 5),
+            borderwidth=1,
+            relief="solid",
+            bordercolor="#d5dce0",
+            lightcolor="#d5dce0",
+            darkcolor="#d5dce0",
+            arrowcolor="#3498db",
+            fieldbackground="#f8f9fa",
+            background="#f8f9fa",
+            foreground="#3498db")
+        style.map("CondConn.TCombobox",
+            fieldbackground=[("readonly", "#f8f9fa"), ("focus", "white"), ("active", "white")],
+            background=[("readonly", "#f8f9fa"), ("focus", "white"), ("active", "white")],
+            foreground=[("readonly", "#3498db")])
 
         # ---- LabelFrame 卡片样式 ----
         # 边框几乎透明，只用留白和标题做分区
@@ -145,6 +212,32 @@ class ExcelToolApp:
             foreground="#2c3e50",
             background=self.COLOR_CONTENT_BG)
 
+        # ---- 滚动条样式（扁平化） ----
+        style.configure("Vertical.TScrollbar",
+            background="#e8ecf0",
+            troughcolor="#f5f7fa",
+            bordercolor="#f5f7fa",
+            arrowcolor="#7f8c8d",
+            lightcolor="#f5f7fa",
+            darkcolor="#f5f7fa",
+            borderwidth=0,
+            arrowsize=14)
+        style.map("Vertical.TScrollbar",
+            background=[("active", "#d5dce0"), ("pressed", "#bdc3c7")],
+            arrowcolor=[("active", "#2c3e50")])
+        style.configure("Horizontal.TScrollbar",
+            background="#e8ecf0",
+            troughcolor="#f5f7fa",
+            bordercolor="#f5f7fa",
+            arrowcolor="#7f8c8d",
+            lightcolor="#f5f7fa",
+            darkcolor="#f5f7fa",
+            borderwidth=0,
+            arrowsize=14)
+        style.map("Horizontal.TScrollbar",
+            background=[("active", "#d5dce0"), ("pressed", "#bdc3c7")],
+            arrowcolor=[("active", "#2c3e50")])
+
         # 将 style 引用保存，供页面模块获取
         self.ttk_style = style
 
@@ -155,9 +248,12 @@ class ExcelToolApp:
         self.nav_frame.pack(side=tk.LEFT, fill=tk.Y)
         self.nav_frame.pack_propagate(False)
 
-        tk.Label(self.nav_frame, text="Excel工具",
-            font=("Microsoft YaHei", 14, "bold"),
-            bg=self.COLOR_NAV_BG, fg="white", pady=20).pack(fill=tk.X)
+        # 侧边栏小 Logo
+        nav_logo_img = b64_to_photoimage(LOGO_NAV_B64)
+        nav_logo_label = tk.Label(self.nav_frame, image=nav_logo_img,
+                                  bg=self.COLOR_NAV_BG)
+        nav_logo_label.image = nav_logo_img  # 保持引用
+        nav_logo_label.pack(pady=(18, 12))
 
         for text, pid, builder, _lazy in self.NAV_ITEMS:
             self.page_builders[pid] = builder
