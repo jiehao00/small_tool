@@ -69,7 +69,7 @@ class DataComparePage:
         self._file_row(file_frame, "B 文件（Excel B）", "entry_file_b", self._browse_file_b)
 
         # ---- 关联列配置 ----
-        col_frame = ttk.LabelFrame(self.frame, text=" 关联列配置（点击 📋 选列，Ctrl+点击多选）",
+        col_frame = ttk.LabelFrame(self.frame, text=" 关联列配置（点击 🏷️ 选列按钮选取，Ctrl+点击多选）",
                                      style="Card.TLabelframe", padding=(16, 10))
         col_frame.pack(fill=tk.X, pady=(0, 12))
 
@@ -77,12 +77,12 @@ class DataComparePage:
         row_a = tk.Frame(col_frame, bg=bg)
         row_a.pack(fill=tk.X, pady=(0, 8))
         tk.Label(row_a, text="A 关联列", font=("Microsoft YaHei", 10),
-                 bg=bg, width=10, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
-        self.entry_match_a = ttk.Entry(row_a, style="Normal.TEntry", width=28)
+                 bg=bg, width=22, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
+        self.entry_match_a = ttk.Entry(row_a, style="Readonly.TEntry", state="readonly", width=28)
         self.entry_match_a.pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Button(row_a, text="📋", width=3,
+        ttk.Button(row_a, text="🏷️ 选列", style="Secondary.TButton",
             command=lambda: self._show_column_picker(self.entry_match_a, self._a_headers)
-        ).pack(side=tk.LEFT, padx=(0, 20))
+        ).pack(side=tk.LEFT, padx=(0, 12))
         self.lbl_a_info = tk.Label(row_a, text="请先选择文件", font=("Microsoft YaHei", 8),
                                     bg=bg, fg="#95a5a6")
         self.lbl_a_info.pack(side=tk.LEFT)
@@ -91,21 +91,21 @@ class DataComparePage:
         row_b = tk.Frame(col_frame, bg=bg)
         row_b.pack(fill=tk.X)
         tk.Label(row_b, text="B 关联列", font=("Microsoft YaHei", 10),
-                 bg=bg, width=10, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
-        self.entry_match_b = ttk.Entry(row_b, style="Normal.TEntry", width=28)
+                 bg=bg, width=22, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
+        self.entry_match_b = ttk.Entry(row_b, style="Readonly.TEntry", state="readonly", width=28)
         self.entry_match_b.pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Button(row_b, text="📋", width=3,
+        ttk.Button(row_b, text="🏷️ 选列", style="Secondary.TButton",
             command=lambda: self._show_column_picker(self.entry_match_b, self._b_headers)
-        ).pack(side=tk.LEFT, padx=(0, 20))
+        ).pack(side=tk.LEFT, padx=(0, 12))
         self.lbl_b_info = tk.Label(row_b, text="请先选择文件", font=("Microsoft YaHei", 8),
                                     bg=bg, fg="#95a5a6")
         self.lbl_b_info.pack(side=tk.LEFT)
 
         # 底部提示
         tk.Label(col_frame,
-            text="提示：点 📋 按钮挑选列，Ctrl+点击多选，按选择顺序输出。两侧列数须一致（第1个↔第1个、第2个↔第2个…）。",
+            text="提示：Ctrl+点击多选，按选择顺序输出。两侧列数须一致（第1个↔第1个、第2个↔第2个…）。",
             font=("Microsoft YaHei", 9), bg=bg, fg="#95a5a6"
-        ).pack(anchor=tk.W, pady=(8, 0))
+        ).pack(anchor=tk.W, pady=(6, 0))
 
         # ---- 输出设置 ----
         out_frame = ttk.LabelFrame(self.frame, text=" 输出设置 ", style="Card.TLabelframe",
@@ -331,9 +331,9 @@ class DataComparePage:
         if not out_path:
             messagebox.showwarning("参数缺失", "请选择输出路径！"); return
         if not sel_a:
-            messagebox.showwarning("参数缺失", "请点击 📋 选择 A 文件的关联列！"); return
+            messagebox.showwarning("参数缺失", "请点击 🏷️ 选列按钮选择 A 文件的关联列！"); return
         if not sel_b:
-            messagebox.showwarning("参数缺失", "请点击 📋 选择 B 文件的关联列！"); return
+            messagebox.showwarning("参数缺失", "请点击 🏷️ 选列按钮选择 B 文件的关联列！"); return
         if len(sel_a) != len(sel_b):
             messagebox.showwarning("列数不一致",
                 f"两侧关联列数量不一致：A 选了 {len(sel_a)} 列，B 选了 {len(sel_b)} 列\n请调整使两侧数量一致。")

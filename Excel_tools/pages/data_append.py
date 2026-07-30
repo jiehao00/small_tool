@@ -14,6 +14,8 @@ import threading
 import os
 from datetime import datetime
 
+from .widgets import RoundedCheckbox
+
 try:
     from openpyxl import load_workbook, Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
@@ -106,12 +108,83 @@ class _DataAppendPage:
         self.align_var = tk.StringVar(value="union")
         align_row = tk.Frame(opt_frame, bg=bg)
         align_row.pack(fill=tk.X)
-        tk.Label(align_row, text="列对齐策略", font=("Microsoft YaHei", 10),
-                 bg=bg, width=14, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Radiobutton(align_row, text="取并集（保留所有列，缺失值留空）",
-                        variable=self.align_var, value="union").pack(side=tk.LEFT, padx=(0, 16))
-        ttk.Radiobutton(align_row, text="取交集（仅保留共有列）",
-                        variable=self.align_var, value="intersect").pack(side=tk.LEFT)
+        tk.Label(align_row, text="列对齐策略", font=("Microsoft YaHei", 10, "bold"),
+                 bg=bg, fg="#34495e", width=14, anchor=tk.E
+                 ).pack(side=tk.LEFT, padx=(0, 12))
+
+        # 分段控件 —— Canvas 绘制，风格统一
+        self._seg_opts = [
+            ("取并集（保留所有列，缺失值留空）", "union"),
+            ("取交集（仅保留共有列）", "intersect"),
+        ]
+        seg_h = 34
+        seg_c = tk.Canvas(align_row, height=seg_h, bg=bg, highlightthickness=0)
+        seg_c.pack(side=tk.LEFT)
+
+        SEL_BG = "#3498db"; SEL_FG = "white"
+        BAR_BG = "#dfe3e8";  IDL_FG = "#555"
+        PAD_X = 4; RADIUS = 6
+
+        def _round_rect(canvas, x1, y1, x2, y2, r, **kw):
+            """画圆角矩形"""
+            points = (x1 + r, y1, x2 - r, y1, x2, y1, x2, y1 + r,
+                      x2, y2 - r, x2, y2, x2 - r, y2,
+                      x1 + r, y2, x1, y2, x1, y2 - r,
+                      x1, y1 + r, x1, y1)
+            return canvas.create_polygon(points, smooth=True, **kw)
+
+        def _seg_redraw():
+            seg_c.delete("all")
+            # 测量两段宽度
+            widths = []
+            for text, _ in self._seg_opts:
+                tw = seg_c.create_text(0, 0, text=text,
+                       font=("Microsoft YaHei", 10), anchor="w")
+                bbox = seg_c.bbox(tw)
+                widths.append(bbox[2] - bbox[0])
+                seg_c.delete(tw)
+            total_w = sum(widths) + PAD_X * 4 + 4
+            seg_c.configure(width=total_w)
+
+            # 背景条
+            _round_rect(seg_c, 0, 0, total_w, seg_h, r=RADIUS, fill=BAR_BG, outline="")
+
+            # 两个分段
+            cur_val = self.align_var.get()
+            cx = PAD_X
+            for i, (text, val) in enumerate(self._seg_opts):
+                seg_w = widths[i] + PAD_X * 2
+                ex = cx + seg_w
+                is_sel = (val == cur_val)
+                if is_sel:
+                    _round_rect(seg_c, cx, 2, ex, seg_h - 2, r=RADIUS,
+                                fill=SEL_BG, outline="")
+                seg_c.create_text(cx + seg_w / 2, seg_h / 2, text=text,
+                                  font=("Microsoft YaHei", 10),
+                                  fill=SEL_FG if is_sel else IDL_FG,
+                                  anchor="center", tags=f"s_{val}")
+                cx = ex
+
+        def _on_seg_click(event):
+            for _, val in self._seg_opts:
+                found = seg_c.find_withtag(f"s_{val}")
+                if found:
+                    bbox = seg_c.bbox(found[0])
+                    if bbox and bbox[0] <= event.x <= bbox[2] and bbox[1] <= event.y <= bbox[3]:
+                        self.align_var.set(val)
+                        return
+
+        seg_c.bind("<Button-1>", _on_seg_click)
+        seg_c._redraw = _seg_redraw  # store for external resize
+        self._seg_canvas = seg_c
+
+        def _update_seg(*args):
+            if hasattr(self, '_seg_canvas') and self._seg_canvas.winfo_exists():
+                self._seg_canvas._redraw()
+
+        _update_seg()
+        self.align_var.trace_add("write", _update_seg)
+        seg_c.after(100, _update_seg)  # 延迟一次确保字体测量准确
 
         # 首行表头
         header_row = tk.Frame(opt_frame, bg=bg)
@@ -119,12 +192,12 @@ class _DataAppendPage:
         tk.Label(header_row, text="", font=("Microsoft YaHei", 10),
                  bg=bg, width=14, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
         self.header_var = tk.BooleanVar(value=True)
-        tk.Checkbutton(header_row, text="每个文件的第一行是列名（仅用于对齐，不作为数据追加）",
-                       variable=self.header_var,
-                       bg=bg, fg="#2c3e50",
-                       activebackground=bg, activeforeground="#2c3e50",
-                       selectcolor="white", font=("Microsoft YaHei", 10),
-                       anchor=tk.W).pack(side=tk.LEFT)
+        hdr_cb = tk.Frame(header_row, bg=bg)
+        hdr_cb.pack(side=tk.LEFT)
+        RoundedCheckbox(hdr_cb, variable=self.header_var, bg=bg).pack(side=tk.LEFT)
+        tk.Label(hdr_cb, text=" 每个文件的第一行是列名（仅用于对齐，不作为数据追加）",
+                 font=("Microsoft YaHei", 10), bg=bg,
+                 fg="#2c3e50").pack(side=tk.LEFT)
 
         # ---- 输出设置 ----
         out_frame = ttk.LabelFrame(self.frame, text=" 输出设置 ", style="Card.TLabelframe",

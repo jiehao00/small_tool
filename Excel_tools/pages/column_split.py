@@ -21,6 +21,8 @@ except ImportError:
     OPENPYXL_AVAILABLE = False
     PatternFill = Font = Alignment = Border = Side = None
 
+from .widgets import RoundedCheckbox
+
 # ---- 可选库：PNG / PDF 导出 ----
 try:
     import matplotlib
@@ -227,6 +229,7 @@ class _ColumnSplitPage:
         self.app = app
         self.file_path = None          # 源文件路径
         self.out_dir = None            # 输出目录
+        self._col_headers = []         # 列名缓存
 
         self.frame = tk.Frame(parent, bg=app.COLOR_CONTENT_BG)
         self._build_ui()
@@ -257,62 +260,51 @@ class _ColumnSplitPage:
         ttk.Button(row_file, text="📂 浏览", style="Secondary.TButton",
                    command=self._browse_file).pack(side=tk.LEFT)
 
-        # ---- 拆分列选择 + 输出目录 ----
-        col_frame = ttk.LabelFrame(self.frame, text=" 拆分列选择 ", style="Card.TLabelframe",
+        # ---- 拆分依据列 ----
+        col_frame = ttk.LabelFrame(self.frame, text=" 拆分依据列 ", style="Card.TLabelframe",
                                     padding=(16, 10))
         col_frame.pack(fill=tk.X, pady=(0, 12))
 
-        left_col = tk.Frame(col_frame, bg=bg)
-        left_col.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 12))
+        # 第一行：拆分依据列
+        key_col = tk.Frame(col_frame, bg=bg)
+        key_col.pack(fill=tk.X)
 
-        tk.Label(left_col, text="拆分依据列（可按多列组合值分组）",
-                 font=("Microsoft YaHei", 10, "bold"),
-                 bg=bg, fg="#2c3e50").pack(anchor=tk.W)
-
-        list_container = tk.Frame(left_col, bg=bg)
-        list_container.pack(fill=tk.BOTH, expand=True)
-
-        self.col_listbox = tk.Listbox(
-            list_container, font=("Microsoft YaHei", 9), height=5,
-            bg="white", fg="#2c3e50", relief="flat",
-            selectbackground="#3498db", selectforeground="white",
-            selectmode=tk.EXTENDED, exportselection=False
-        )
-        col_scroll = tk.Scrollbar(list_container, orient=tk.VERTICAL)
-        self.col_listbox.config(yscrollcommand=col_scroll.set)
-        col_scroll.config(command=self.col_listbox.yview)
-        self.col_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        col_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-
-        tk.Label(left_col,
-                 text="提示：按住 Ctrl / Shift 可多选，选择文件后自动加载列名",
-                 font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6"
-                 ).pack(anchor=tk.W, pady=(4, 0))
-
-        # 右侧输出目录
-        right_col = tk.Frame(col_frame, bg=bg)
-        right_col.pack(side=tk.LEFT, fill=tk.BOTH)
-
-        tk.Label(right_col, text="输出目录", font=("Microsoft YaHei", 10, "bold"),
-                 bg=bg, fg="#2c3e50").pack(anchor=tk.W)
-
-        out_row = tk.Frame(right_col, bg=bg)
-        out_row.pack(anchor=tk.W, pady=(8, 0))
-        self.entry_dir = ttk.Entry(out_row, style="Readonly.TEntry", state="readonly", width=32)
-        self.entry_dir.pack(side=tk.LEFT, padx=(0, 8))
-        ttk.Button(out_row, text="📂 浏览", style="Secondary.TButton",
-                   command=self._browse_dir).pack(side=tk.LEFT)
-
-        tk.Label(right_col,
-                 text="每个唯一组合值将生成对应文件，如：\n结果_北京.xlsx / 结果_上海.png（取决于所选格式）",
+        col_row = tk.Frame(key_col, bg=bg)
+        col_row.pack(fill=tk.X)
+        tk.Label(col_row, text="拆分依据列",
+                 font=("Microsoft YaHei", 10),
+                 bg=bg, width=14, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
+        self.entry_cols = ttk.Entry(col_row, style="Readonly.TEntry", state="readonly", width=28)
+        self.entry_cols.pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(col_row, text="🏷️ 选列", style="Secondary.TButton",
+                   command=self._show_col_picker).pack(side=tk.LEFT)
+        tk.Label(key_col, text="提示：可按多列组合值分组；选择文件后点击按钮选取拆分列，支持 Ctrl 多选",
                  font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6",
-                 justify=tk.LEFT
-                 ).pack(anchor=tk.W, pady=(6, 0))
+                 wraplength=700, justify=tk.LEFT, anchor=tk.W
+                 ).pack(fill=tk.X, pady=(6, 0))
 
         # ---- 输出设置 ----
         out_frame = ttk.LabelFrame(self.frame, text=" 输出设置 ", style="Card.TLabelframe",
                                     padding=(16, 10))
         out_frame.pack(fill=tk.X, pady=(0, 12))
+
+        # 输出目录
+        dir_col = tk.Frame(out_frame, bg=bg)
+        dir_col.pack(fill=tk.X, pady=(0, 10))
+
+        dir_row = tk.Frame(dir_col, bg=bg)
+        dir_row.pack(fill=tk.X)
+        tk.Label(dir_row, text="输出目录", font=("Microsoft YaHei", 10),
+                 bg=bg, width=14, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
+        self.entry_dir = ttk.Entry(dir_row, style="Readonly.TEntry", state="readonly", width=32)
+        self.entry_dir.pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(dir_row, text="📂 浏览", style="Secondary.TButton",
+                   command=self._browse_dir).pack(side=tk.LEFT)
+        tk.Label(dir_col,
+                 text="提示：每个唯一组合值将生成对应文件，如：结果_北京.xlsx / 结果_上海.png（取决于所选格式）",
+                 font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6",
+                 wraplength=700, justify=tk.LEFT, anchor=tk.W
+                 ).pack(fill=tk.X, pady=(6, 0))
 
         name_row = tk.Frame(out_frame, bg=bg)
         name_row.pack(fill=tk.X)
@@ -340,21 +332,23 @@ class _ColumnSplitPage:
         self.fmt_png = tk.BooleanVar(value=False)
         self.fmt_pdf = tk.BooleanVar(value=False)
 
-        tk.Checkbutton(fmt_inner, text="Excel (.xlsx)", variable=self.fmt_excel,
-                       font=("Microsoft YaHei", 10), bg=bg,
-                       activebackground=bg, selectcolor="white",
-                       fg="#2c3e50", activeforeground="#2c3e50"
-                       ).pack(side=tk.LEFT, padx=(0, 22))
-        tk.Checkbutton(fmt_inner, text="PNG (.png)", variable=self.fmt_png,
-                       font=("Microsoft YaHei", 10), bg=bg,
-                       activebackground=bg, selectcolor="white",
-                       fg="#2c3e50", activeforeground="#2c3e50"
-                       ).pack(side=tk.LEFT, padx=(0, 22))
-        tk.Checkbutton(fmt_inner, text="PDF (.pdf)", variable=self.fmt_pdf,
-                       font=("Microsoft YaHei", 10), bg=bg,
-                       activebackground=bg, selectcolor="white",
-                       fg="#2c3e50", activeforeground="#2c3e50"
-                       ).pack(side=tk.LEFT, padx=(0, 0))
+        cb1 = tk.Frame(fmt_inner, bg=bg)
+        cb1.pack(side=tk.LEFT, padx=(0, 16))
+        RoundedCheckbox(cb1, variable=self.fmt_excel, bg=bg).pack(side=tk.LEFT)
+        tk.Label(cb1, text=" Excel (.xlsx)", font=("Microsoft YaHei", 10),
+                 bg=bg, fg="#2c3e50").pack(side=tk.LEFT)
+
+        cb2 = tk.Frame(fmt_inner, bg=bg)
+        cb2.pack(side=tk.LEFT, padx=(0, 16))
+        RoundedCheckbox(cb2, variable=self.fmt_png, bg=bg).pack(side=tk.LEFT)
+        tk.Label(cb2, text=" PNG (.png)", font=("Microsoft YaHei", 10),
+                 bg=bg, fg="#2c3e50").pack(side=tk.LEFT)
+
+        cb3 = tk.Frame(fmt_inner, bg=bg)
+        cb3.pack(side=tk.LEFT)
+        RoundedCheckbox(cb3, variable=self.fmt_pdf, bg=bg).pack(side=tk.LEFT)
+        tk.Label(cb3, text=" PDF (.pdf)", font=("Microsoft YaHei", 10),
+                 bg=bg, fg="#2c3e50").pack(side=tk.LEFT)
 
         def toggle_all():
             new_val = not (self.fmt_excel.get() and self.fmt_png.get() and self.fmt_pdf.get())
@@ -420,8 +414,8 @@ class _ColumnSplitPage:
             self._set_readonly_value(self.entry_dir, path)
 
     def _load_columns(self):
-        """加载选中文件的列名到 Listbox"""
-        self.col_listbox.delete(0, tk.END)
+        """加载选中文件的列名到缓存"""
+        self._col_headers = []
         if not self.file_path:
             return
         try:
@@ -431,7 +425,8 @@ class _ColumnSplitPage:
             wb.close()
             if row:
                 for name in row:
-                    self.col_listbox.insert(tk.END, str(name) if name is not None else "")
+                    self._col_headers.append(str(name) if name is not None else "")
+                self.log(f"[INFO] 已加载 {len(self._col_headers)} 个列名")
         except Exception as e:
             self.log(f"[ERROR] 读取列名失败: {e}")
 
@@ -441,6 +436,87 @@ class _ColumnSplitPage:
         entry.delete(0, tk.END)
         entry.insert(0, value)
         entry.configure(state="readonly")
+
+    # ==================== 弹窗选列 ====================
+    def _show_col_picker(self):
+        """弹出窗口选择拆分依据列"""
+        if not self._col_headers:
+            messagebox.showwarning("提示", "请先选择源 Excel 文件以加载列名")
+            return
+
+        existing = [c.strip() for c in self.entry_cols.get().strip().split(",") if c.strip()]
+
+        popup = tk.Toplevel(self.parent)
+        popup.title("选择拆分依据列")
+        popup.geometry("300x350")
+        popup.resizable(False, False)
+        popup.transient(self.parent)
+        popup.grab_set()
+        popup.update_idletasks()
+        x = self.parent.winfo_rootx() + (self.parent.winfo_width() - 300) // 2
+        y = self.parent.winfo_rooty() + (self.parent.winfo_height() - 350) // 2
+        popup.geometry(f"+{x}+{y}")
+
+        bg = self.app.COLOR_CONTENT_BG
+        f = tk.Frame(popup, bg=bg, padx=12, pady=12)
+        f.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(f, text="Ctrl+点击多选，按选择顺序输出",
+                 font=("Microsoft YaHei", 9), bg=bg, fg="#7f8c8d"
+                 ).pack(anchor=tk.W)
+
+        list_frame = tk.Frame(f, bg=bg)
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(8, 12))
+
+        lb = tk.Listbox(list_frame, font=("Microsoft YaHei", 10),
+                        selectmode=tk.EXTENDED,
+                        bg="white", fg="#2c3e50", relief="flat",
+                        selectbackground="#3498db", selectforeground="white",
+                        exportselection=False)
+        sb = tk.Scrollbar(list_frame, orient=tk.VERTICAL)
+        lb.config(yscrollcommand=sb.set)
+        sb.config(command=lb.yview)
+        lb.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        sb.pack(side=tk.RIGHT, fill=tk.Y)
+
+        for col in self._col_headers:
+            lb.insert(tk.END, col)
+
+        sel_order = []
+        for i, col in enumerate(self._col_headers):
+            if col in existing:
+                lb.selection_set(i)
+                sel_order.append(i)
+
+        def on_select_change(event):
+            old_set = set(sel_order)
+            new_set = set(lb.curselection())
+            removed = old_set - new_set
+            added = new_set - old_set
+            sel_order[:] = [i for i in sel_order if i not in removed]
+            for i in sorted(added):
+                if i not in sel_order:
+                    sel_order.append(i)
+
+        lb.bind("<<ListboxSelect>>", on_select_change)
+
+        btn_row = tk.Frame(f, bg=bg)
+        btn_row.pack(fill=tk.X)
+
+        def on_ok():
+            selected = [lb.get(i) for i in sel_order]
+            self._set_readonly_value(self.entry_cols, ", ".join(selected))
+            popup.destroy()
+
+        tk.Button(btn_row, text="取消", font=("Microsoft YaHei", 10),
+                  width=8, bg="#ecf0f1", relief="flat", cursor="hand2",
+                  command=popup.destroy).pack(side=tk.RIGHT, padx=(8, 0))
+        tk.Button(btn_row, text="确定", font=("Microsoft YaHei", 10, "bold"),
+                  width=8, bg="#3498db", fg="white", relief="flat", cursor="hand2",
+                  activebackground="#2980b9", activeforeground="white",
+                  command=on_ok).pack(side=tk.RIGHT)
+
+        popup.bind("<Return>", lambda e: on_ok())
 
     # ==================== 日志 ====================
     def log(self, msg):
@@ -458,11 +534,10 @@ class _ColumnSplitPage:
             messagebox.showwarning("提示", "请先选择要拆分的 Excel 文件")
             return
 
-        sel = self.col_listbox.curselection()
-        if not sel:
+        split_cols = [c.strip() for c in self.entry_cols.get().strip().split(",") if c.strip()]
+        if not split_cols:
             messagebox.showwarning("提示", "请选择拆分依据列（可按住 Ctrl 多选）")
             return
-        split_cols = [self.col_listbox.get(i) for i in sel]
 
         if not self.out_dir:
             messagebox.showwarning("提示", "请选择输出目录")

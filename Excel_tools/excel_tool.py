@@ -96,13 +96,15 @@ class ExcelToolApp:
         style.configure("Secondary.TButton",
             font=("Microsoft YaHei", 9),
             padding=(12, 4),
-            borderwidth=0,
-            relief="flat",
+            borderwidth=1,
+            relief="solid",
             foreground="#2c3e50",
             background="#ecf0f1",
-            focusthickness=0)
+            focusthickness=0,
+            bordercolor="#d5dce0")
         style.map("Secondary.TButton",
-            background=[("active", "#d5dbdb"), ("disabled", "#f0f3f4")])
+            background=[("active", "#d5dbdb"), ("disabled", "#f0f3f4")],
+            bordercolor=[("active", "#bdc3c7"), ("disabled", "#d5dce0")])
 
         # 启动按钮（绿色）
         style.configure("Action.TButton",
@@ -116,6 +118,15 @@ class ExcelToolApp:
         style.map("Action.TButton",
             background=[("active", "#219a52"), ("disabled", "#aab7c4")],
             foreground=[("disabled", "#e0e0e0")])
+
+        # ---- 复选框样式 ----
+        style.configure("Card.TCheckbutton",
+            font=("Microsoft YaHei", 10),
+            foreground="#2c3e50",
+            background="#f5f5f5",
+            focusthickness=0)
+        style.map("Card.TCheckbutton",
+            background=[("active", "#f5f5f5"), ("selected", "#f5f5f5")])
 
         # ---- 输入框样式 ----
         style.configure("Normal.TEntry",

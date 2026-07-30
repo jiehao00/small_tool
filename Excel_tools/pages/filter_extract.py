@@ -14,6 +14,8 @@ import threading
 import os
 from datetime import datetime
 
+from .widgets import RoundedCheckbox
+
 try:
     from openpyxl import load_workbook
     from openpyxl.styles import PatternFill, Font
@@ -323,12 +325,12 @@ class FilterExtractPage:
                 row_frame = tk.Frame(self.out_col_container, bg=bg)
                 row_frame.pack(fill=tk.X, pady=(0, 4))
             var = tk.BooleanVar(value=True)
-            cb = tk.Checkbutton(row_frame, text=h, variable=var,
-                font=("Microsoft YaHei", 9), bg=bg,
-                selectcolor=bg, activebackground=bg,
-                anchor=tk.W, justify=tk.LEFT,
-                wraplength=360, width=46)
-            cb.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
+            cb_frame = tk.Frame(row_frame, bg=bg)
+            cb_frame.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
+            RoundedCheckbox(cb_frame, variable=var, bg=bg).pack(side=tk.LEFT, anchor=tk.N)
+            tk.Label(cb_frame, text=" " + h, font=("Microsoft YaHei", 9),
+                     bg=bg, fg="#2c3e50", anchor=tk.W, justify=tk.LEFT,
+                     wraplength=340).pack(side=tk.LEFT, fill=tk.X, expand=True)
             self._output_col_vars.append((h, var))
 
     def _select_all_cols(self):

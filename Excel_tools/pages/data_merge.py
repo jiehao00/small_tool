@@ -21,6 +21,8 @@ except ImportError:
     OPENPYXL_AVAILABLE = False
     PatternFill = Font = Alignment = Border = Side = None
 
+from .widgets import RoundedCheckbox
+
 HEADER_FILL = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
 HEADER_FONT = Font(name="Microsoft YaHei", size=11, bold=True, color="FFFFFF")
 HEADER_ALIGNMENT = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -49,6 +51,7 @@ class _DataMergePage:
         self.parent = parent
         self.app = app
         self.file_path = None     # 源文件路径
+        self._key_headers = []   # 列名缓存
 
         self.frame = tk.Frame(parent, bg=app.COLOR_CONTENT_BG)
         self._build_ui()
@@ -84,39 +87,32 @@ class _DataMergePage:
                                        padding=(16, 10))
         config_frame.pack(fill=tk.X, pady=(0, 12))
 
-        # 左侧：主键列
+        # 第一行：主键列
         key_frame = tk.Frame(config_frame, bg=bg)
-        key_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 12))
+        key_frame.pack(fill=tk.X, pady=(0, 10))
 
-        tk.Label(key_frame, text="主键列（可多选）", font=("Microsoft YaHei", 10, "bold"),
-                 bg=bg, fg="#2c3e50").pack(anchor=tk.W)
+        key_row = tk.Frame(key_frame, bg=bg)
+        key_row.pack(fill=tk.X)
+        tk.Label(key_row, text="主键列（可多选）", font=("Microsoft YaHei", 10),
+                 bg=bg, width=14, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
+        self.entry_keys = ttk.Entry(key_row, style="Readonly.TEntry", state="readonly", width=28)
+        self.entry_keys.pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(key_row, text="🏷️ 选列", style="Secondary.TButton",
+                   command=self._show_key_picker).pack(side=tk.LEFT)
+        tk.Label(key_frame, text="提示：选择文件后点击按钮选取主键列，支持 Ctrl 多选",
+                 font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6",
+                 wraplength=700, justify=tk.LEFT, anchor=tk.W
+                 ).pack(fill=tk.X, pady=(6, 0))
 
-        # 列表框与滚动条放入独立容器，避免影响下方提示文字布局
-        listbox_container = tk.Frame(key_frame, bg=bg)
-        listbox_container.pack(fill=tk.BOTH, expand=True)
-
-        self.key_listbox = tk.Listbox(
-            listbox_container, font=("Microsoft YaHei", 9), height=5,
-            bg="white", fg="#2c3e50", relief="flat",
-            selectbackground="#3498db", selectforeground="white",
-            selectmode=tk.EXTENDED, exportselection=False
-        )
-        key_scroll = tk.Scrollbar(listbox_container, orient=tk.VERTICAL)
-        self.key_listbox.config(yscrollcommand=key_scroll.set)
-        key_scroll.config(command=self.key_listbox.yview)
-        self.key_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        key_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-
-        tk.Label(key_frame, text="提示：按住 Ctrl / Shift 可多选，选择文件后自动加载列名",
-                 font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6"
-                 ).pack(anchor=tk.W, pady=(2, 0))
-
-        # 右侧：聚合方式
+        # 第二行：聚合方式
         agg_frame = tk.Frame(config_frame, bg=bg)
-        agg_frame.pack(side=tk.LEFT, fill=tk.BOTH)
+        agg_frame.pack(fill=tk.X)
 
-        tk.Label(agg_frame, text="数值列聚合方式", font=("Microsoft YaHei", 10, "bold"),
-                 bg=bg, fg="#2c3e50").pack(anchor=tk.W)
+        # 标签 + 全选按钮 同行
+        agg_title_row = tk.Frame(agg_frame, bg=bg)
+        agg_title_row.pack(anchor=tk.W, fill=tk.X)
+        tk.Label(agg_title_row, text="数值列聚合方式", font=("Microsoft YaHei", 10, "bold"),
+                 bg=bg, fg="#2c3e50").pack(side=tk.LEFT)
 
         self.agg_vars = {}
         agg_content = tk.Frame(agg_frame, bg=bg)
@@ -125,16 +121,38 @@ class _DataMergePage:
         for i, (label, key) in enumerate(AGG_OPTS):
             var = tk.BooleanVar(value=(label == "求和"))
             self.agg_vars[label] = var
-            cb = tk.Checkbutton(
-                agg_content, text=label, variable=var,
-                font=("Microsoft YaHei", 10), bg=bg,
-                selectcolor=bg, activebackground=bg
-            )
-            cb.grid(row=i // 3, column=i % 3, sticky=tk.W, padx=(0, 20), pady=2)
+            cb_frame = tk.Frame(agg_content, bg=bg)
+            cb_frame.grid(row=0, column=i, sticky=tk.W, padx=(0, 24), pady=2)
+            RoundedCheckbox(cb_frame, variable=var, bg=bg).pack(side=tk.LEFT)
+            tk.Label(cb_frame, text=" " + label, font=("Microsoft YaHei", 10),
+                     bg=bg, fg="#2c3e50").pack(side=tk.LEFT)
 
-        tk.Label(agg_frame, text="相同主键的行，数值列按勾选方式汇总，非数值列取第一行",
-                 font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6"
-                 ).pack(anchor=tk.W, pady=(4, 0))
+        # 全选/全不选按钮（放在标题行右侧）
+        def _toggle_all_agg():
+            all_on = all(v.get() for v in self.agg_vars.values())
+            for v in self.agg_vars.values():
+                v.set(not all_on)
+
+        def _update_agg_toggle_text(*args):
+            all_on = all(v.get() for v in self.agg_vars.values())
+            self.btn_agg_toggle.config(text="✗ 全不选" if all_on else "✓ 全选")
+
+        self.btn_agg_toggle = tk.Button(agg_title_row, text="✓ 全选",
+                                         font=("Microsoft YaHei", 9),
+                                         bg="#3498db", fg="white", relief="flat",
+                                         activebackground="#2980b9", activeforeground="white",
+                                         cursor="hand2", padx=8, pady=2,
+                                         command=_toggle_all_agg)
+        self.btn_agg_toggle.pack(side=tk.RIGHT, padx=(8, 0))
+
+        for v in self.agg_vars.values():
+            v.trace_add("write", _update_agg_toggle_text)
+        _update_agg_toggle_text()
+
+        tk.Label(agg_frame, text="提示：相同主键的行，数值列按勾选方式汇总，非数值列取第一行",
+                 font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6",
+                 wraplength=700, justify=tk.LEFT, anchor=tk.W
+                 ).pack(fill=tk.X, pady=(6, 0))
 
         # ---- 输出设置 ----
         out_frame = ttk.LabelFrame(self.frame, text=" 输出设置 ", style="Card.TLabelframe",
@@ -200,7 +218,7 @@ class _DataMergePage:
         entry.configure(state="readonly")
 
     def _load_columns(self):
-        self.key_listbox.delete(0, tk.END)
+        self._key_headers = []
         if not self.file_path:
             return
         try:
@@ -211,8 +229,8 @@ class _DataMergePage:
             if row:
                 for col_name in row:
                     if col_name is not None:
-                        self.key_listbox.insert(tk.END, str(col_name))
-                self.log(f"[INFO] 已加载 {self.key_listbox.size()} 个列名")
+                        self._key_headers.append(str(col_name))
+                self.log(f"[INFO] 已加载 {len(self._key_headers)} 个列名")
         except Exception as e:
             self.log(f"[ERROR] 读取列名失败: {e}")
 
@@ -225,7 +243,88 @@ class _DataMergePage:
 
     # ==================== 合并逻辑 ====================
     def _get_selected_keys(self):
-        return [self.key_listbox.get(i) for i in self.key_listbox.curselection()]
+        return [c.strip() for c in self.entry_keys.get().strip().split(",") if c.strip()]
+
+    # ==================== 弹窗选列 ====================
+    def _show_key_picker(self):
+        """弹出窗口选择主键列"""
+        if not self._key_headers:
+            messagebox.showwarning("提示", "请先选择源 Excel 文件以加载列名")
+            return
+
+        existing = [c.strip() for c in self.entry_keys.get().strip().split(",") if c.strip()]
+
+        popup = tk.Toplevel(self.parent)
+        popup.title("选择主键列")
+        popup.geometry("300x350")
+        popup.resizable(False, False)
+        popup.transient(self.parent)
+        popup.grab_set()
+        popup.update_idletasks()
+        x = self.parent.winfo_rootx() + (self.parent.winfo_width() - 300) // 2
+        y = self.parent.winfo_rooty() + (self.parent.winfo_height() - 350) // 2
+        popup.geometry(f"+{x}+{y}")
+
+        bg = self.app.COLOR_CONTENT_BG
+        f = tk.Frame(popup, bg=bg, padx=12, pady=12)
+        f.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(f, text="Ctrl+点击多选，按选择顺序输出",
+                 font=("Microsoft YaHei", 9), bg=bg, fg="#7f8c8d"
+                 ).pack(anchor=tk.W)
+
+        list_frame = tk.Frame(f, bg=bg)
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(8, 12))
+
+        lb = tk.Listbox(list_frame, font=("Microsoft YaHei", 10),
+                        selectmode=tk.EXTENDED,
+                        bg="white", fg="#2c3e50", relief="flat",
+                        selectbackground="#3498db", selectforeground="white",
+                        exportselection=False)
+        sb = tk.Scrollbar(list_frame, orient=tk.VERTICAL)
+        lb.config(yscrollcommand=sb.set)
+        sb.config(command=lb.yview)
+        lb.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        sb.pack(side=tk.RIGHT, fill=tk.Y)
+
+        for col in self._key_headers:
+            lb.insert(tk.END, col)
+
+        sel_order = []
+        for i, col in enumerate(self._key_headers):
+            if col in existing:
+                lb.selection_set(i)
+                sel_order.append(i)
+
+        def on_select_change(event):
+            old_set = set(sel_order)
+            new_set = set(lb.curselection())
+            removed = old_set - new_set
+            added = new_set - old_set
+            sel_order[:] = [i for i in sel_order if i not in removed]
+            for i in sorted(added):
+                if i not in sel_order:
+                    sel_order.append(i)
+
+        lb.bind("<<ListboxSelect>>", on_select_change)
+
+        btn_row = tk.Frame(f, bg=bg)
+        btn_row.pack(fill=tk.X)
+
+        def on_ok():
+            selected = [lb.get(i) for i in sel_order]
+            self._set_readonly_value(self.entry_keys, ", ".join(selected))
+            popup.destroy()
+
+        tk.Button(btn_row, text="取消", font=("Microsoft YaHei", 10),
+                  width=8, bg="#ecf0f1", relief="flat", cursor="hand2",
+                  command=popup.destroy).pack(side=tk.RIGHT, padx=(8, 0))
+        tk.Button(btn_row, text="确定", font=("Microsoft YaHei", 10, "bold"),
+                  width=8, bg="#3498db", fg="white", relief="flat", cursor="hand2",
+                  activebackground="#2980b9", activeforeground="white",
+                  command=on_ok).pack(side=tk.RIGHT)
+
+        popup.bind("<Return>", lambda e: on_ok())
 
     def _get_agg_ops(self):
         return [op for label, op in AGG_OPTS if self.agg_vars[label].get()]

@@ -25,6 +25,8 @@ except ImportError:
     OPENPYXL_AVAILABLE = False
     PatternFill = Font = Alignment = Border = Side = None
 
+from .widgets import RoundedCheckbox
+
 # 样式常量
 HEADER_FILL = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
 HEADER_FONT = Font(name="Microsoft YaHei", size=11, bold=True, color="FFFFFF")
@@ -117,13 +119,14 @@ class _InvoiceCheckPage:
         crow.pack(fill=tk.X)
         tk.Label(crow, text="比对列", font=("Microsoft YaHei", 10),
                  bg=bg, width=12, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
-        self.entry_cols = ttk.Entry(crow, style="Normal.TEntry", width=36)
-        self.entry_cols.pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Button(crow, text="📋", width=3,
-                   command=self._show_column_picker).pack(side=tk.LEFT, padx=(0, 12))
-        tk.Label(crow,
-                 text="多选列组合匹配，仅选发票号时连号检测效果最佳",
-                 font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6").pack(side=tk.LEFT)
+        self.entry_cols = ttk.Entry(crow, style="Readonly.TEntry", state="readonly", width=36)
+        self.entry_cols.pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Button(crow, text="🏷️ 选列", style="Secondary.TButton",
+                   command=self._show_column_picker).pack(side=tk.LEFT)
+        tk.Label(col_frame,
+                 text="提示：按住 Ctrl 多选，所选列组合作为重复/连号比对依据（仅选发票号时连号检测效果最佳）",
+                 font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6",
+                 anchor=tk.W).pack(anchor=tk.W, pady=(6, 0))
 
         # ---- 检测选项 ----
         opt_frame = ttk.LabelFrame(self.frame, text=" 检测选项 ", style="Card.TLabelframe",
@@ -132,23 +135,19 @@ class _InvoiceCheckPage:
 
         # 重复检测
         self.dup_var = tk.BooleanVar(value=True)
-        tk.Checkbutton(opt_frame, text="重复检测：标记所选列组合值完全相同的行（如 发票号+品名+金额 全同=重复）",
-                       variable=self.dup_var,
-                       bg=bg, fg="#2c3e50",
-                       activebackground=bg, activeforeground="#2c3e50",
-                       selectcolor="white", font=("Microsoft YaHei", 10),
-                       anchor=tk.W).pack(anchor=tk.W)
+        dup_row = tk.Frame(opt_frame, bg=bg)
+        dup_row.pack(anchor=tk.W)
+        RoundedCheckbox(dup_row, variable=self.dup_var, bg=bg).pack(side=tk.LEFT)
+        tk.Label(dup_row, text=" 重复检测：标记所选列组合值完全相同的行（如 发票号+品名+金额 全同=重复）",
+                 font=("Microsoft YaHei", 10), bg=bg, fg="#2c3e50").pack(side=tk.LEFT)
 
         # 连号检测
         self.seq_var = tk.BooleanVar(value=False)
         seq_top = tk.Frame(opt_frame, bg=bg)
         seq_top.pack(fill=tk.X, anchor=tk.W, pady=(6, 0))
-        tk.Checkbutton(seq_top, text="连号检测：标记发票号码连续的行组",
-                       variable=self.seq_var,
-                       bg=bg, fg="#2c3e50",
-                       activebackground=bg, activeforeground="#2c3e50",
-                       selectcolor="white", font=("Microsoft YaHei", 10),
-                       anchor=tk.W).pack(side=tk.LEFT)
+        RoundedCheckbox(seq_top, variable=self.seq_var, bg=bg).pack(side=tk.LEFT)
+        tk.Label(seq_top, text=" 连号检测：标记发票号码连续的行组",
+                 font=("Microsoft YaHei", 10), bg=bg, fg="#2c3e50").pack(side=tk.LEFT)
         tk.Label(seq_top, text="  连续阈值：",
                  font=("Microsoft YaHei", 10), bg=bg, fg="#2c3e50").pack(side=tk.LEFT, padx=(16, 4))
         self.spin_threshold = tk.Spinbox(seq_top, from_=2, to=999, width=4,
@@ -236,7 +235,7 @@ class _InvoiceCheckPage:
             wb.close()
             self._columns = [str(c) for c in row if c is not None]
             # 清空已选列
-            self.entry_cols.delete(0, tk.END)
+            self._set_entry_text(self.entry_cols, "")
             self._log(f"已加载 {len(self._columns)} 个列名")
         except Exception as e:
             self._log(f"[ERROR] 读取列名失败: {e}")
@@ -347,7 +346,7 @@ class _InvoiceCheckPage:
         # 获取比对列（从 Entry 文本解析）
         col_text = self.entry_cols.get().strip()
         if not col_text:
-            messagebox.showwarning("提示", "请点击 📋 按钮选择至少一列")
+            messagebox.showwarning("提示", "请点击 🏷️ 选列按钮选择至少一列")
             return
         dup_cols = [c.strip() for c in col_text.split(",") if c.strip()]
 

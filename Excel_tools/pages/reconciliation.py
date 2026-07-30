@@ -77,12 +77,12 @@ class ReconciliationPage:
         row_key_a = tk.Frame(key_frame, bg=bg)
         row_key_a.pack(fill=tk.X, pady=(0, 8))
         tk.Label(row_key_a, text="汇总主键列", font=("Microsoft YaHei", 10),
-            bg=bg, width=12, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
-        self.entry_key_a = ttk.Entry(row_key_a, style="Normal.TEntry", width=28)
+            bg=bg, width=22, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
+        self.entry_key_a = ttk.Entry(row_key_a, style="Readonly.TEntry", state="readonly", width=28)
         self.entry_key_a.pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Button(row_key_a, text="📋", width=3,
+        ttk.Button(row_key_a, text="🏷️ 选列", style="Secondary.TButton",
             command=lambda: self._show_column_picker(self.entry_key_a, self._a_headers)
-        ).pack(side=tk.LEFT, padx=(0, 20))
+        ).pack(side=tk.LEFT, padx=(0, 12))
         self.lbl_a_info = tk.Label(row_key_a, text="请先选择文件", font=("Microsoft YaHei", 8),
             bg=bg, fg="#95a5a6")
         self.lbl_a_info.pack(side=tk.LEFT)
@@ -90,12 +90,12 @@ class ReconciliationPage:
         row_key_b = tk.Frame(key_frame, bg=bg)
         row_key_b.pack(fill=tk.X)
         tk.Label(row_key_b, text="明细主键列", font=("Microsoft YaHei", 10),
-            bg=bg, width=12, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
-        self.entry_key_b = ttk.Entry(row_key_b, style="Normal.TEntry", width=28)
+            bg=bg, width=22, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
+        self.entry_key_b = ttk.Entry(row_key_b, style="Readonly.TEntry", state="readonly", width=28)
         self.entry_key_b.pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Button(row_key_b, text="📋", width=3,
+        ttk.Button(row_key_b, text="🏷️ 选列", style="Secondary.TButton",
             command=lambda: self._show_column_picker(self.entry_key_b, self._b_headers)
-        ).pack(side=tk.LEFT, padx=(0, 20))
+        ).pack(side=tk.LEFT, padx=(0, 12))
         self.lbl_b_info = tk.Label(row_key_b, text="请先选择文件", font=("Microsoft YaHei", 8),
             bg=bg, fg="#95a5a6")
         self.lbl_b_info.pack(side=tk.LEFT)
@@ -108,28 +108,29 @@ class ReconciliationPage:
         row_cmp_a = tk.Frame(cmp_frame, bg=bg)
         row_cmp_a.pack(fill=tk.X, pady=(0, 8))
         tk.Label(row_cmp_a, text="汇总对比列", font=("Microsoft YaHei", 10),
-            bg=bg, width=12, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
-        self.entry_cmp_a = ttk.Entry(row_cmp_a, style="Normal.TEntry", width=28)
+            bg=bg, width=22, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
+        self.entry_cmp_a = ttk.Entry(row_cmp_a, style="Readonly.TEntry", state="readonly", width=28)
         self.entry_cmp_a.pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Button(row_cmp_a, text="📋", width=3,
+        ttk.Button(row_cmp_a, text="🏷️ 选列", style="Secondary.TButton",
             command=lambda: self._show_column_picker(self.entry_cmp_a, self._a_headers)
         ).pack(side=tk.LEFT)
 
         row_cmp_b = tk.Frame(cmp_frame, bg=bg)
-        row_cmp_b.pack(fill=tk.X)
+        row_cmp_b.pack(fill=tk.X, pady=(0, 8))
         tk.Label(row_cmp_b, text="明细对比列", font=("Microsoft YaHei", 10),
-            bg=bg, width=12, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
-        self.entry_cmp_b = ttk.Entry(row_cmp_b, style="Normal.TEntry", width=28)
+            bg=bg, width=22, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
+        self.entry_cmp_b = ttk.Entry(row_cmp_b, style="Readonly.TEntry", state="readonly", width=28)
         self.entry_cmp_b.pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Button(row_cmp_b, text="📋", width=3,
+        ttk.Button(row_cmp_b, text="🏷️ 选列", style="Secondary.TButton",
             command=lambda: self._show_column_picker(self.entry_cmp_b, self._b_headers)
         ).pack(side=tk.LEFT)
 
         tk.Label(cmp_frame,
             text="提示：汇总对比列的第1列与明细对比列的第1列对比，第2列与第2列对比…两侧列数须一致。"
                  "明细表按主键分组后对比列自动求和。",
-            font=("Microsoft YaHei", 9), bg=bg, fg="#95a5a6"
-        ).pack(anchor=tk.W, pady=(8, 0))
+            font=("Microsoft YaHei", 9), bg=bg, fg="#95a5a6",
+            wraplength=600, justify=tk.LEFT
+        ).pack(anchor=tk.W, fill=tk.X, pady=(6, 0))
 
         # ---- 输出设置 ----
         out_frame = ttk.LabelFrame(self.frame, text=" 输出设置 ", style="Card.TLabelframe",

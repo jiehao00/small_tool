@@ -150,18 +150,18 @@ class MergeDataBuilder:
         row.pack(fill=tk.X, pady=(0, 12))
         tk.Label(row, text=label1, font=("Microsoft YaHei", 10),
             bg=self.app.COLOR_CONTENT_BG, width=10, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 6))
-        e1 = ttk.Entry(row, style="Normal.TEntry", width=16)
+        e1 = ttk.Entry(row, style="Readonly.TEntry", state="readonly", width=16)
         e1.pack(side=tk.LEFT, padx=(0, 2))
         if picker_cmd1:
-            ttk.Button(row, text="📋", width=3, command=picker_cmd1).pack(side=tk.LEFT, padx=(0, 18))
+            ttk.Button(row, text="🏷️ 选列", style="Secondary.TButton", command=picker_cmd1).pack(side=tk.LEFT, padx=(0, 12))
         else:
-            tk.Frame(row, width=6, bg=self.app.COLOR_CONTENT_BG).pack(side=tk.LEFT, padx=(0, 18))
+            tk.Frame(row, width=6, bg=self.app.COLOR_CONTENT_BG).pack(side=tk.LEFT, padx=(0, 12))
         tk.Label(row, text=label2, font=("Microsoft YaHei", 10),
             bg=self.app.COLOR_CONTENT_BG, width=10, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 6))
-        e2 = ttk.Entry(row, style="Normal.TEntry", width=16)
+        e2 = ttk.Entry(row, style="Readonly.TEntry", state="readonly", width=16)
         e2.pack(side=tk.LEFT, padx=(0, 2))
         if picker_cmd2:
-            ttk.Button(row, text="📋", width=3, command=picker_cmd2).pack(side=tk.LEFT)
+            ttk.Button(row, text="🏷️ 选列", style="Secondary.TButton", command=picker_cmd2).pack(side=tk.LEFT)
         setattr(self, attr1, e1)
         setattr(self, attr2, e2)
 

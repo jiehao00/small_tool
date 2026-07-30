@@ -40,6 +40,7 @@ class _DataSplitPage:
         self.parent = parent
         self.app = app
         self.file_path = None     # 源文件路径
+        self._col_headers = []   # 列名缓存
 
         self.frame = tk.Frame(parent, bg=app.COLOR_CONTENT_BG)
         self._build_ui()
@@ -75,48 +76,38 @@ class _DataSplitPage:
                                        padding=(16, 10))
         config_frame.pack(fill=tk.X, pady=(0, 12))
 
-        # 左侧：拆分列（单选）
+        # 第一行：拆分列（单选）
         col_frame = tk.Frame(config_frame, bg=bg)
-        col_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 12))
+        col_frame.pack(fill=tk.X, pady=(0, 10))
 
-        tk.Label(col_frame, text="拆分列（单选）", font=("Microsoft YaHei", 10, "bold"),
-                 bg=bg, fg="#2c3e50").pack(anchor=tk.W)
+        col_row = tk.Frame(col_frame, bg=bg)
+        col_row.pack(fill=tk.X)
+        tk.Label(col_row, text="拆分列（单选）", font=("Microsoft YaHei", 10),
+                 bg=bg, width=14, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
+        self.entry_col = ttk.Entry(col_row, style="Readonly.TEntry", state="readonly", width=28)
+        self.entry_col.pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(col_row, text="🏷️ 选列", style="Secondary.TButton",
+                   command=self._show_col_picker).pack(side=tk.LEFT)
+        tk.Label(col_frame, text="提示：选择一个拆分列，该列内容将按分隔符拆为多行",
+                 font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6",
+                 wraplength=700, justify=tk.LEFT, anchor=tk.W
+                 ).pack(fill=tk.X, pady=(6, 0))
 
-        listbox_container = tk.Frame(col_frame, bg=bg)
-        listbox_container.pack(fill=tk.BOTH, expand=True)
-
-        self.col_listbox = tk.Listbox(
-            listbox_container, font=("Microsoft YaHei", 9), height=5,
-            bg="white", fg="#2c3e50", relief="flat",
-            selectbackground="#3498db", selectforeground="white",
-            selectmode=tk.SINGLE, exportselection=False
-        )
-        col_scroll = tk.Scrollbar(listbox_container, orient=tk.VERTICAL)
-        self.col_listbox.config(yscrollcommand=col_scroll.set)
-        col_scroll.config(command=self.col_listbox.yview)
-        self.col_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        col_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-
-        tk.Label(col_frame, text="提示：选择列后输入分隔符，该列内容将按分隔符拆为多行",
-                 font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6"
-                 ).pack(anchor=tk.W, pady=(2, 0))
-
-        # 右侧：分隔符
+        # 第二行：分隔符
         sep_frame = tk.Frame(config_frame, bg=bg)
-        sep_frame.pack(side=tk.LEFT, fill=tk.BOTH)
-
-        tk.Label(sep_frame, text="分隔符", font=("Microsoft YaHei", 10, "bold"),
-                 bg=bg, fg="#2c3e50").pack(anchor=tk.W)
+        sep_frame.pack(fill=tk.X)
 
         sep_row = tk.Frame(sep_frame, bg=bg)
-        sep_row.pack(anchor=tk.W, pady=(8, 0))
-        self.entry_delimiter = ttk.Entry(sep_row, style="Normal.TEntry", width=12)
+        sep_row.pack(fill=tk.X)
+        tk.Label(sep_row, text="分隔符", font=("Microsoft YaHei", 10),
+                 bg=bg, width=14, anchor=tk.E).pack(side=tk.LEFT, padx=(0, 8))
+        self.entry_delimiter = ttk.Entry(sep_row, style="Normal.TEntry", width=28)
         self.entry_delimiter.insert(0, ",")
         self.entry_delimiter.pack(side=tk.LEFT)
-
-        tk.Label(sep_frame, text="常用：逗号 , | 空格 | 换行 \\n | 分号 ; | 自定义任意字符",
-                 font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6"
-                 ).pack(anchor=tk.W, pady=(4, 0))
+        tk.Label(sep_frame, text="提示：常用分隔符包括逗号 , | 空格 | 换行 \\n | 分号 ; | 自定义任意字符",
+                 font=("Microsoft YaHei", 8), bg=bg, fg="#95a5a6",
+                 wraplength=700, justify=tk.LEFT, anchor=tk.W
+                 ).pack(fill=tk.X, pady=(6, 0))
 
         # ---- 输出设置 ----
         out_frame = ttk.LabelFrame(self.frame, text=" 输出设置 ", style="Card.TLabelframe",
@@ -176,8 +167,8 @@ class _DataSplitPage:
             self._set_readonly_value(self.entry_out, path)
 
     def _load_columns(self):
-        """加载选中文件的列名到 Listbox"""
-        self.col_listbox.delete(0, tk.END)
+        """加载选中文件的列名到缓存"""
+        self._col_headers = []
         if not self.file_path:
             return
         try:
@@ -187,7 +178,8 @@ class _DataSplitPage:
             wb.close()
             if row:
                 for name in row:
-                    self.col_listbox.insert(tk.END, str(name) if name is not None else "")
+                    self._col_headers.append(str(name) if name is not None else "")
+                self.log(f"[INFO] 已加载 {len(self._col_headers)} 个列名")
         except Exception as e:
             self.log(f"[ERROR] 读取列名失败: {e}")
 
@@ -197,6 +189,75 @@ class _DataSplitPage:
         entry.delete(0, tk.END)
         entry.insert(0, value)
         entry.configure(state="readonly")
+
+    # ==================== 弹窗选列 ====================
+    def _show_col_picker(self):
+        """弹出窗口选择拆分列"""
+        if not self._col_headers:
+            messagebox.showwarning("提示", "请先选择源 Excel 文件以加载列名")
+            return
+
+        existing = self.entry_col.get().strip()
+
+        popup = tk.Toplevel(self.parent)
+        popup.title("选择拆分列")
+        popup.geometry("300x350")
+        popup.resizable(False, False)
+        popup.transient(self.parent)
+        popup.grab_set()
+        popup.update_idletasks()
+        x = self.parent.winfo_rootx() + (self.parent.winfo_width() - 300) // 2
+        y = self.parent.winfo_rooty() + (self.parent.winfo_height() - 350) // 2
+        popup.geometry(f"+{x}+{y}")
+
+        bg = self.app.COLOR_CONTENT_BG
+        f = tk.Frame(popup, bg=bg, padx=12, pady=12)
+        f.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(f, text="点击选择要拆分的列",
+                 font=("Microsoft YaHei", 9), bg=bg, fg="#7f8c8d"
+                 ).pack(anchor=tk.W)
+
+        list_frame = tk.Frame(f, bg=bg)
+        list_frame.pack(fill=tk.BOTH, expand=True, pady=(8, 12))
+
+        lb = tk.Listbox(list_frame, font=("Microsoft YaHei", 10),
+                        selectmode=tk.SINGLE,
+                        bg="white", fg="#2c3e50", relief="flat",
+                        selectbackground="#3498db", selectforeground="white",
+                        exportselection=False)
+        sb = tk.Scrollbar(list_frame, orient=tk.VERTICAL)
+        lb.config(yscrollcommand=sb.set)
+        sb.config(command=lb.yview)
+        lb.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        sb.pack(side=tk.RIGHT, fill=tk.Y)
+
+        for col in self._col_headers:
+            lb.insert(tk.END, col)
+
+        if existing in self._col_headers:
+            idx = self._col_headers.index(existing)
+            lb.selection_set(idx)
+            lb.see(idx)
+
+        btn_row = tk.Frame(f, bg=bg)
+        btn_row.pack(fill=tk.X)
+
+        def on_ok():
+            sel = lb.curselection()
+            if sel:
+                self._set_readonly_value(self.entry_col, lb.get(sel[0]))
+            popup.destroy()
+
+        tk.Button(btn_row, text="取消", font=("Microsoft YaHei", 10),
+                  width=8, bg="#ecf0f1", relief="flat", cursor="hand2",
+                  command=popup.destroy).pack(side=tk.RIGHT, padx=(8, 0))
+        tk.Button(btn_row, text="确定", font=("Microsoft YaHei", 10, "bold"),
+                  width=8, bg="#3498db", fg="white", relief="flat", cursor="hand2",
+                  activebackground="#2980b9", activeforeground="white",
+                  command=on_ok).pack(side=tk.RIGHT)
+
+        popup.bind("<Return>", lambda e: on_ok())
 
     # ==================== 日志 ====================
     def log(self, msg):
@@ -217,11 +278,10 @@ class _DataSplitPage:
             return
 
         # 获取选中列
-        sel = self.col_listbox.curselection()
-        if not sel:
+        split_col = self.entry_col.get().strip()
+        if not split_col:
             messagebox.showwarning("提示", "请选择要拆分的列")
             return
-        split_col = self.col_listbox.get(sel[0])
 
         # 获取分隔符
         delimiter = self.entry_delimiter.get()

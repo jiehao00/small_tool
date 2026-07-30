@@ -50,6 +50,10 @@ echo.
     --hidden-import openpyxl ^
     --hidden-import openpyxl.styles ^
     --hidden-import openpyxl.utils ^
+    --hidden-import matplotlib ^
+    --hidden-import matplotlib.backends.backend_agg ^
+    --hidden-import fpdf2 ^
+    --hidden-import fpdf ^
     --add-data "pages;pages" ^
     --clean ^
     --noconfirm ^
