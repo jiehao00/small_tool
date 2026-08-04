@@ -47,6 +47,7 @@ echo.
     --onefile ^
     --windowed ^
     --name "财务Excel工具箱" ^
+    --icon "ChatGPT-Image-2026年7月28日-14_44_50.ico" ^
     --hidden-import openpyxl ^
     --hidden-import openpyxl.styles ^
     --hidden-import openpyxl.utils ^

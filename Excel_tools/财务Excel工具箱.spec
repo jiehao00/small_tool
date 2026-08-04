@@ -35,4 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['ChatGPT-Image-2026年7月28日-14_44_50.ico'],
 )
